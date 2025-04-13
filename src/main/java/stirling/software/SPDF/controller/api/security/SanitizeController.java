@@ -4,17 +4,9 @@ import java.io.IOException;
 
 import org.apache.pdfbox.cos.COSDictionary;
 import org.apache.pdfbox.cos.COSName;
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.PDDocumentCatalog;
-import org.apache.pdfbox.pdmodel.PDPage;
-import org.apache.pdfbox.pdmodel.PDPageTree;
-import org.apache.pdfbox.pdmodel.PDResources;
+import org.apache.pdfbox.pdmodel.*;
 import org.apache.pdfbox.pdmodel.common.PDMetadata;
-import org.apache.pdfbox.pdmodel.interactive.action.PDAction;
-import org.apache.pdfbox.pdmodel.interactive.action.PDActionJavaScript;
-import org.apache.pdfbox.pdmodel.interactive.action.PDActionLaunch;
-import org.apache.pdfbox.pdmodel.interactive.action.PDActionURI;
-import org.apache.pdfbox.pdmodel.interactive.action.PDFormFieldAdditionalActions;
+import org.apache.pdfbox.pdmodel.interactive.action.*;
 import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotation;
 import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotationLink;
 import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotationWidget;
@@ -33,7 +25,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import stirling.software.SPDF.model.api.security.SanitizePdfRequest;
-import stirling.software.SPDF.service.CustomPDDocumentFactory;
+import stirling.software.SPDF.service.CustomPDFDocumentFactory;
 import stirling.software.SPDF.utils.WebResponseUtils;
 
 @RestController
@@ -41,10 +33,10 @@ import stirling.software.SPDF.utils.WebResponseUtils;
 @Tag(name = "Security", description = "Security APIs")
 public class SanitizeController {
 
-    private final CustomPDDocumentFactory pdfDocumentFactory;
+    private final CustomPDFDocumentFactory pdfDocumentFactory;
 
     @Autowired
-    public SanitizeController(CustomPDDocumentFactory pdfDocumentFactory) {
+    public SanitizeController(CustomPDFDocumentFactory pdfDocumentFactory) {
         this.pdfDocumentFactory = pdfDocumentFactory;
     }
 
@@ -52,17 +44,19 @@ public class SanitizeController {
     @Operation(
             summary = "Sanitize a PDF file",
             description =
-                    "This endpoint processes a PDF file and removes specific elements based on the provided options. Input:PDF Output:PDF Type:SISO")
+                    "This endpoint processes a PDF file and removes specific elements based on the"
+                            + " provided options. Input:PDF Output:PDF Type:SISO")
     public ResponseEntity<byte[]> sanitizePDF(@ModelAttribute SanitizePdfRequest request)
             throws IOException {
         MultipartFile inputFile = request.getFileInput();
         boolean removeJavaScript = request.isRemoveJavaScript();
         boolean removeEmbeddedFiles = request.isRemoveEmbeddedFiles();
+        boolean removeXMPMetadata = request.isRemoveXMPMetadata();
         boolean removeMetadata = request.isRemoveMetadata();
         boolean removeLinks = request.isRemoveLinks();
         boolean removeFonts = request.isRemoveFonts();
 
-        PDDocument document = pdfDocumentFactory.load(inputFile);
+        PDDocument document = pdfDocumentFactory.load(inputFile, true);
         if (removeJavaScript) {
             sanitizeJavaScript(document);
         }
@@ -71,8 +65,12 @@ public class SanitizeController {
             sanitizeEmbeddedFiles(document);
         }
 
+        if (removeXMPMetadata) {
+            sanitizeXMPMetadata(document);
+        }
+
         if (removeMetadata) {
-            sanitizeMetadata(document);
+            sanitizeDocumentInfoMetadata(document);
         }
 
         if (removeLinks) {
@@ -111,8 +109,7 @@ public class SanitizeController {
 
         for (PDPage page : document.getPages()) {
             for (PDAnnotation annotation : page.getAnnotations()) {
-                if (annotation instanceof PDAnnotationWidget) {
-                    PDAnnotationWidget widget = (PDAnnotationWidget) annotation;
+                if (annotation instanceof PDAnnotationWidget widget) {
                     PDAction action = widget.getAction();
                     if (action instanceof PDActionJavaScript) {
                         widget.setAction(null);
@@ -153,7 +150,7 @@ public class SanitizeController {
         }
     }
 
-    private void sanitizeMetadata(PDDocument document) {
+    private void sanitizeXMPMetadata(PDDocument document) {
         if (document.getDocumentCatalog() != null) {
             PDMetadata metadata = document.getDocumentCatalog().getMetadata();
             if (metadata != null) {
@@ -162,15 +159,23 @@ public class SanitizeController {
         }
     }
 
+    private void sanitizeDocumentInfoMetadata(PDDocument document) {
+        PDDocumentInformation docInfo = document.getDocumentInformation();
+        if (docInfo != null) {
+            PDDocumentInformation newInfo = new PDDocumentInformation();
+            document.setDocumentInformation(newInfo);
+        }
+    }
+
     private void sanitizeLinks(PDDocument document) throws IOException {
         for (PDPage page : document.getPages()) {
             for (PDAnnotation annotation : page.getAnnotations()) {
-                if (annotation != null && annotation instanceof PDAnnotationLink) {
-                    PDAction action = ((PDAnnotationLink) annotation).getAction();
+                if (annotation != null && annotation instanceof PDAnnotationLink linkAnnotation) {
+                    PDAction action = linkAnnotation.getAction();
                     if (action != null
                             && (action instanceof PDActionLaunch
                                     || action instanceof PDActionURI)) {
-                        ((PDAnnotationLink) annotation).setAction(null);
+                        linkAnnotation.setAction(null);
                     }
                 }
             }

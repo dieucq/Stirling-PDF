@@ -1,21 +1,22 @@
 package stirling.software.SPDF.utils;
 
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.PDPage;
-import org.apache.pdfbox.pdmodel.PDResources;
-import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
-import stirling.software.SPDF.model.PdfMetadata;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.*;
+import org.apache.pdfbox.cos.COSName;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDResources;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
-import org.apache.pdfbox.cos.COSName;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 public class PdfUtilsTest {
 
@@ -48,6 +49,4 @@ public class PdfUtilsTest {
 
         assertTrue(PdfUtils.hasImagesOnPage(page));
     }
-
-
 }

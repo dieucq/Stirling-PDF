@@ -5,22 +5,26 @@ import org.springframework.stereotype.Component;
 
 import jakarta.servlet.http.HttpSessionEvent;
 import jakarta.servlet.http.HttpSessionListener;
+
 import lombok.extern.slf4j.Slf4j;
 
 @Component
 @Slf4j
 public class CustomHttpSessionListener implements HttpSessionListener {
 
-    @Autowired private SessionPersistentRegistry sessionPersistentRegistry;
+    private SessionPersistentRegistry sessionPersistentRegistry;
 
-    @Override
-    public void sessionCreated(HttpSessionEvent se) {
-        log.info("Session created: " + se.getSession().getId());
+    @Autowired
+    public CustomHttpSessionListener(SessionPersistentRegistry sessionPersistentRegistry) {
+        super();
+        this.sessionPersistentRegistry = sessionPersistentRegistry;
     }
 
     @Override
+    public void sessionCreated(HttpSessionEvent se) {}
+
+    @Override
     public void sessionDestroyed(HttpSessionEvent se) {
-        log.info("Session destroyed: " + se.getSession().getId());
         sessionPersistentRegistry.expireSession(se.getSession().getId());
     }
 }

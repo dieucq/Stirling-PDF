@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.multipdf.LayerUtility;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
@@ -13,8 +12,6 @@ import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.graphics.form.PDFormXObject;
 import org.apache.pdfbox.util.Matrix;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -28,7 +25,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import stirling.software.SPDF.model.api.general.ScalePagesRequest;
-import stirling.software.SPDF.service.CustomPDDocumentFactory;
+import stirling.software.SPDF.service.CustomPDFDocumentFactory;
 import stirling.software.SPDF.utils.WebResponseUtils;
 
 @RestController
@@ -36,12 +33,10 @@ import stirling.software.SPDF.utils.WebResponseUtils;
 @Tag(name = "General", description = "General APIs")
 public class ScalePagesController {
 
-    private static final Logger logger = LoggerFactory.getLogger(ScalePagesController.class);
-
-    private final CustomPDDocumentFactory pdfDocumentFactory;
+    private final CustomPDFDocumentFactory pdfDocumentFactory;
 
     @Autowired
-    public ScalePagesController(CustomPDDocumentFactory pdfDocumentFactory) {
+    public ScalePagesController(CustomPDFDocumentFactory pdfDocumentFactory) {
         this.pdfDocumentFactory = pdfDocumentFactory;
     }
 
@@ -49,14 +44,15 @@ public class ScalePagesController {
     @Operation(
             summary = "Change the size of a PDF page/document",
             description =
-                    "This operation takes an input PDF file and the size to scale the pages to in the output PDF file. Input:PDF Output:PDF Type:SISO")
+                    "This operation takes an input PDF file and the size to scale the pages to in"
+                            + " the output PDF file. Input:PDF Output:PDF Type:SISO")
     public ResponseEntity<byte[]> scalePages(@ModelAttribute ScalePagesRequest request)
             throws IOException {
         MultipartFile file = request.getFileInput();
         String targetPDRectangle = request.getPageSize();
         float scaleFactor = request.getScaleFactor();
 
-        PDDocument sourceDocument = Loader.loadPDF(file.getBytes());
+        PDDocument sourceDocument = pdfDocumentFactory.load(file);
         PDDocument outputDocument =
                 pdfDocumentFactory.createNewDocumentBasedOnOldDocument(sourceDocument);
 
@@ -109,7 +105,7 @@ public class ScalePagesController {
     }
 
     private PDRectangle getTargetSize(String targetPDRectangle, PDDocument sourceDocument) {
-        if (targetPDRectangle.equals("KEEP")) {
+        if ("KEEP".equals(targetPDRectangle)) {
             if (sourceDocument.getNumberOfPages() == 0) {
                 return null;
             }
@@ -128,7 +124,8 @@ public class ScalePagesController {
         }
 
         throw new IllegalArgumentException(
-                "Invalid PDRectangle. It must be one of the following: A0, A1, A2, A3, A4, A5, A6, LETTER, LEGAL, KEEP");
+                "Invalid PDRectangle. It must be one of the following: A0, A1, A2, A3, A4, A5, A6,"
+                        + " LETTER, LEGAL, KEEP");
     }
 
     private Map<String, PDRectangle> getSizeMap() {

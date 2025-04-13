@@ -1,15 +1,12 @@
 package stirling.software.SPDF.controller.api.security;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDDocumentCatalog;
 import org.apache.pdfbox.pdmodel.interactive.form.PDAcroForm;
 import org.apache.pdfbox.pdmodel.interactive.form.PDField;
 import org.apache.pdfbox.pdmodel.interactive.form.PDSignatureField;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -23,7 +20,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import stirling.software.SPDF.model.api.PDFFile;
-import stirling.software.SPDF.service.CustomPDDocumentFactory;
+import stirling.software.SPDF.service.CustomPDFDocumentFactory;
 import stirling.software.SPDF.utils.WebResponseUtils;
 
 @RestController
@@ -31,12 +28,10 @@ import stirling.software.SPDF.utils.WebResponseUtils;
 @Tag(name = "Security", description = "Security APIs")
 public class RemoveCertSignController {
 
-    private static final Logger logger = LoggerFactory.getLogger(RemoveCertSignController.class);
-
-    private final CustomPDDocumentFactory pdfDocumentFactory;
+    private final CustomPDFDocumentFactory pdfDocumentFactory;
 
     @Autowired
-    public RemoveCertSignController(CustomPDDocumentFactory pdfDocumentFactory) {
+    public RemoveCertSignController(CustomPDFDocumentFactory pdfDocumentFactory) {
         this.pdfDocumentFactory = pdfDocumentFactory;
     }
 
@@ -44,7 +39,8 @@ public class RemoveCertSignController {
     @Operation(
             summary = "Remove digital signature from PDF",
             description =
-                    "This endpoint accepts a PDF file and returns the PDF file without the digital signature. Input: PDF, Output: PDF")
+                    "This endpoint accepts a PDF file and returns the PDF file without the digital"
+                            + " signature. Input:PDF, Output:PDF Type:SISO")
     public ResponseEntity<byte[]> removeCertSignPDF(@ModelAttribute PDFFile request)
             throws Exception {
         MultipartFile pdf = request.getFileInput();
@@ -62,7 +58,7 @@ public class RemoveCertSignController {
             List<PDField> fieldsToRemove =
                     acroForm.getFields().stream()
                             .filter(field -> field instanceof PDSignatureField)
-                            .collect(Collectors.toList());
+                            .toList();
 
             if (!fieldsToRemove.isEmpty()) {
                 acroForm.flatten(fieldsToRemove, false);

@@ -2,8 +2,6 @@ package stirling.software.SPDF.controller.api.misc;
 
 import java.io.IOException;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,22 +15,23 @@ import io.github.pixee.security.Filenames;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
+import lombok.extern.slf4j.Slf4j;
+
 import stirling.software.SPDF.model.api.misc.OverlayImageRequest;
-import stirling.software.SPDF.service.CustomPDDocumentFactory;
+import stirling.software.SPDF.service.CustomPDFDocumentFactory;
 import stirling.software.SPDF.utils.PdfUtils;
 import stirling.software.SPDF.utils.WebResponseUtils;
 
 @RestController
 @RequestMapping("/api/v1/misc")
+@Slf4j
 @Tag(name = "Misc", description = "Miscellaneous APIs")
 public class OverlayImageController {
 
-    private static final Logger logger = LoggerFactory.getLogger(OverlayImageController.class);
-
-    private final CustomPDDocumentFactory pdfDocumentFactory;
+    private final CustomPDFDocumentFactory pdfDocumentFactory;
 
     @Autowired
-    public OverlayImageController(CustomPDDocumentFactory pdfDocumentFactory) {
+    public OverlayImageController(CustomPDFDocumentFactory pdfDocumentFactory) {
         this.pdfDocumentFactory = pdfDocumentFactory;
     }
 
@@ -40,7 +39,9 @@ public class OverlayImageController {
     @Operation(
             summary = "Overlay image onto a PDF file",
             description =
-                    "This endpoint overlays an image onto a PDF file at the specified coordinates. The image can be overlaid on every page of the PDF if specified.  Input:PDF/IMAGE Output:PDF Type:SISO")
+                    "This endpoint overlays an image onto a PDF file at the specified coordinates."
+                            + " The image can be overlaid on every page of the PDF if specified. "
+                            + " Input:PDF/IMAGE Output:PDF Type:SISO")
     public ResponseEntity<byte[]> overlayImage(@ModelAttribute OverlayImageRequest request) {
         MultipartFile pdfFile = request.getFileInput();
         MultipartFile imageFile = request.getImageFile();
@@ -60,7 +61,7 @@ public class OverlayImageController {
                                     .replaceFirst("[.][^.]+$", "")
                             + "_overlayed.pdf");
         } catch (IOException e) {
-            logger.error("Failed to add image to PDF", e);
+            log.error("Failed to add image to PDF", e);
             return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
         }
     }

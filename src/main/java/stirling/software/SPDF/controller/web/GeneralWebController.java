@@ -6,21 +6,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.stream.Collectors;
+import java.util.*;
 import java.util.stream.Stream;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
-import org.springframework.core.io.support.ResourcePatternUtils;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,37 +22,57 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
+import lombok.extern.slf4j.Slf4j;
+
+import stirling.software.SPDF.config.InstallationPathConfig;
+import stirling.software.SPDF.config.RuntimePathConfig;
+import stirling.software.SPDF.controller.api.pipeline.UserServiceInterface;
+import stirling.software.SPDF.model.SignatureFile;
+import stirling.software.SPDF.service.SignatureService;
+import stirling.software.SPDF.utils.GeneralUtils;
+
 @Controller
 @Tag(name = "General", description = "General APIs")
+@Slf4j
 public class GeneralWebController {
 
-    private static final Logger logger = LoggerFactory.getLogger(GeneralWebController.class);
+    private final SignatureService signatureService;
+    private final UserServiceInterface userService;
+    private final ResourceLoader resourceLoader;
+    private final RuntimePathConfig runtimePathConfig;
+
+    public GeneralWebController(
+            SignatureService signatureService,
+            @Autowired(required = false) UserServiceInterface userService,
+            ResourceLoader resourceLoader,
+            RuntimePathConfig runtimePathConfig) {
+        this.signatureService = signatureService;
+        this.userService = userService;
+        this.resourceLoader = resourceLoader;
+        this.runtimePathConfig = runtimePathConfig;
+    }
 
     @GetMapping("/pipeline")
     @Hidden
     public String pipelineForm(Model model) {
         model.addAttribute("currentPage", "pipeline");
-
         List<String> pipelineConfigs = new ArrayList<>();
         List<Map<String, String>> pipelineConfigsWithNames = new ArrayList<>();
-
-        if (new File("./pipeline/defaultWebUIConfigs/").exists()) {
-            try (Stream<Path> paths = Files.walk(Paths.get("./pipeline/defaultWebUIConfigs/"))) {
+        if (new File(runtimePathConfig.getPipelineDefaultWebUiConfigs()).exists()) {
+            try (Stream<Path> paths =
+                    Files.walk(Paths.get(runtimePathConfig.getPipelineDefaultWebUiConfigs()))) {
                 List<Path> jsonFiles =
                         paths.filter(Files::isRegularFile)
                                 .filter(p -> p.toString().endsWith(".json"))
-                                .collect(Collectors.toList());
-
+                                .toList();
                 for (Path jsonFile : jsonFiles) {
                     String content = Files.readString(jsonFile, StandardCharsets.UTF_8);
                     pipelineConfigs.add(content);
                 }
-
                 for (String config : pipelineConfigs) {
                     Map<String, Object> jsonContent =
                             new ObjectMapper()
                                     .readValue(config, new TypeReference<Map<String, Object>>() {});
-
                     String name = (String) jsonContent.get("name");
                     if (name == null || name.length() < 1) {
                         String filename =
@@ -76,9 +87,8 @@ public class GeneralWebController {
                     configWithName.put("name", name);
                     pipelineConfigsWithNames.add(configWithName);
                 }
-
             } catch (IOException e) {
-                logger.error("exception", e);
+                log.error("exception", e);
             }
         }
         if (pipelineConfigsWithNames.size() == 0) {
@@ -88,9 +98,7 @@ public class GeneralWebController {
             pipelineConfigsWithNames.add(configWithName);
         }
         model.addAttribute("pipelineConfigsWithNames", pipelineConfigsWithNames);
-
         model.addAttribute("pipelineConfigs", pipelineConfigs);
-
         return "pipeline";
     }
 
@@ -106,6 +114,13 @@ public class GeneralWebController {
     public String splitPdfBySections(Model model) {
         model.addAttribute("currentPage", "split-pdf-by-sections");
         return "split-pdf-by-sections";
+    }
+
+    @GetMapping("/split-pdf-by-chapters")
+    @Hidden
+    public String splitPdfByChapters(Model model) {
+        model.addAttribute("currentPage", "split-pdf-by-chapters");
+        return "split-pdf-by-chapters";
     }
 
     @GetMapping("/view-pdf")
@@ -167,8 +182,15 @@ public class GeneralWebController {
     @GetMapping("/sign")
     @Hidden
     public String signForm(Model model) {
+        String username = "";
+        if (userService != null) {
+            username = userService.getCurrentUsername();
+        }
+        // Get signatures from both personal and ALL_USERS folders
+        List<SignatureFile> signatures = signatureService.getAvailableSignatures(username);
         model.addAttribute("currentPage", "sign");
         model.addAttribute("fonts", getFontNames());
+        model.addAttribute("signatures", signatures);
         return "sign";
     }
 
@@ -200,25 +222,25 @@ public class GeneralWebController {
         return "overlay-pdf";
     }
 
-    @Autowired private ResourceLoader resourceLoader;
-
     private List<FontResource> getFontNames() {
         List<FontResource> fontNames = new ArrayList<>();
-
         // Extract font names from classpath
         fontNames.addAll(getFontNamesFromLocation("classpath:static/fonts/*.woff2"));
-
         // Extract font names from external directory
-        fontNames.addAll(getFontNamesFromLocation("file:customFiles/static/fonts/*"));
-
+        fontNames.addAll(
+                getFontNamesFromLocation(
+                        "file:"
+                                + InstallationPathConfig.getStaticPath()
+                                + "fonts"
+                                + File.separator
+                                + "*"));
         return fontNames;
     }
 
     private List<FontResource> getFontNamesFromLocation(String locationPattern) {
         try {
             Resource[] resources =
-                    ResourcePatternUtils.getResourcePatternResolver(resourceLoader)
-                            .getResources(locationPattern);
+                    GeneralUtils.getResourcesFromLocationPattern(locationPattern, resourceLoader);
             return Arrays.stream(resources)
                     .map(
                             resource -> {
@@ -238,7 +260,7 @@ public class GeneralWebController {
                                 }
                             })
                     .filter(Objects::nonNull)
-                    .collect(Collectors.toList());
+                    .toList();
         } catch (Exception e) {
             throw new RuntimeException("Failed to read font directory from " + locationPattern, e);
         }
@@ -257,13 +279,38 @@ public class GeneralWebController {
             case "svg":
                 return "svg";
             default:
-                return ""; // or throw an exception if an unexpected extension is encountered
+                // or throw an exception if an unexpected extension is encountered
+                return "";
         }
     }
 
+    @GetMapping("/crop")
+    @Hidden
+    public String cropForm(Model model) {
+        model.addAttribute("currentPage", "crop");
+        return "crop";
+    }
+
+    @GetMapping("/auto-split-pdf")
+    @Hidden
+    public String autoSPlitPDFForm(Model model) {
+        model.addAttribute("currentPage", "auto-split-pdf");
+        return "auto-split-pdf";
+    }
+
+    @GetMapping("/remove-image-pdf")
+    @Hidden
+    public String removeImagePdfForm(Model model) {
+        model.addAttribute("currentPage", "remove-image-pdf");
+        return "remove-image-pdf";
+    }
+
     public class FontResource {
+
         private String name;
+
         private String extension;
+
         private String type;
 
         public FontResource(String name, String extension) {
@@ -295,26 +342,5 @@ public class GeneralWebController {
         public void setType(String type) {
             this.type = type;
         }
-    }
-
-    @GetMapping("/crop")
-    @Hidden
-    public String cropForm(Model model) {
-        model.addAttribute("currentPage", "crop");
-        return "crop";
-    }
-
-    @GetMapping("/auto-split-pdf")
-    @Hidden
-    public String autoSPlitPDFForm(Model model) {
-        model.addAttribute("currentPage", "auto-split-pdf");
-        return "auto-split-pdf";
-    }
-
-    @GetMapping("/remove-image-pdf")
-    @Hidden
-    public String removeImagePdfForm(Model model) {
-        model.addAttribute("currentPage", "remove-image-pdf");
-        return "remove-image-pdf";
     }
 }

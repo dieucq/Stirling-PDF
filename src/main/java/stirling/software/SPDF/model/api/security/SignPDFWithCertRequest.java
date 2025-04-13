@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+
 import stirling.software.SPDF.model.api.PDFFile;
 
 @Data
@@ -50,4 +51,7 @@ public class SignPDFWithCertRequest extends PDFFile {
             description =
                     "The page number where the signature should be visible. This is required if showSignature is set to true")
     private Integer pageNumber;
+
+    @Schema(description = "Whether to visually show a signature logo along with the signature")
+    private boolean showLogo;
 }

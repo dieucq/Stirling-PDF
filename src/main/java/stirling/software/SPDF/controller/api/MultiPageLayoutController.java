@@ -1,10 +1,9 @@
 package stirling.software.SPDF.controller.api;
 
-import java.awt.Color;
+import java.awt.*;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
-import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.multipdf.LayerUtility;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
@@ -12,8 +11,6 @@ import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.graphics.form.PDFormXObject;
 import org.apache.pdfbox.util.Matrix;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -27,7 +24,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import stirling.software.SPDF.model.api.general.MergeMultiplePagesRequest;
-import stirling.software.SPDF.service.CustomPDDocumentFactory;
+import stirling.software.SPDF.service.CustomPDFDocumentFactory;
 import stirling.software.SPDF.utils.WebResponseUtils;
 
 @RestController
@@ -35,12 +32,10 @@ import stirling.software.SPDF.utils.WebResponseUtils;
 @Tag(name = "General", description = "General APIs")
 public class MultiPageLayoutController {
 
-    private static final Logger logger = LoggerFactory.getLogger(MultiPageLayoutController.class);
-
-    private final CustomPDDocumentFactory pdfDocumentFactory;
+    private final CustomPDFDocumentFactory pdfDocumentFactory;
 
     @Autowired
-    public MultiPageLayoutController(CustomPDDocumentFactory pdfDocumentFactory) {
+    public MultiPageLayoutController(CustomPDFDocumentFactory pdfDocumentFactory) {
         this.pdfDocumentFactory = pdfDocumentFactory;
     }
 
@@ -48,7 +43,8 @@ public class MultiPageLayoutController {
     @Operation(
             summary = "Merge multiple pages of a PDF document into a single page",
             description =
-                    "This operation takes an input PDF file and the number of pages to merge into a single sheet in the output PDF file. Input:PDF Output:PDF Type:SISO")
+                    "This operation takes an input PDF file and the number of pages to merge into a"
+                            + " single sheet in the output PDF file. Input:PDF Output:PDF Type:SISO")
     public ResponseEntity<byte[]> mergeMultiplePagesIntoOne(
             @ModelAttribute MergeMultiplePagesRequest request) throws IOException {
 
@@ -68,7 +64,7 @@ public class MultiPageLayoutController {
                         : (int) Math.sqrt(pagesPerSheet);
         int rows = pagesPerSheet == 2 || pagesPerSheet == 3 ? 1 : (int) Math.sqrt(pagesPerSheet);
 
-        PDDocument sourceDocument = Loader.loadPDF(file.getBytes());
+        PDDocument sourceDocument = pdfDocumentFactory.load(file);
         PDDocument newDocument =
                 pdfDocumentFactory.createNewDocumentBasedOnOldDocument(sourceDocument);
         PDPage newPage = new PDPage(PDRectangle.A4);

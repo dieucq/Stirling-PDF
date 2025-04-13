@@ -4,37 +4,39 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.Properties;
 import java.util.function.Predicate;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.context.annotation.Scope;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.thymeleaf.spring6.SpringTemplateEngine;
 
+import lombok.extern.slf4j.Slf4j;
+
 import stirling.software.SPDF.model.ApplicationProperties;
 
 @Configuration
 @Lazy
+@Slf4j
 public class AppConfig {
 
-    private static final Logger logger = LoggerFactory.getLogger(AppConfig.class);
+    private final ApplicationProperties applicationProperties;
 
-    @Autowired ApplicationProperties applicationProperties;
+    public AppConfig(ApplicationProperties applicationProperties) {
+        this.applicationProperties = applicationProperties;
+    }
 
     @Bean
-    @ConditionalOnProperty(
-            name = "system.customHTMLFiles",
-            havingValue = "true",
-            matchIfMissing = false)
+    @ConditionalOnProperty(name = "system.customHTMLFiles", havingValue = "true")
     public SpringTemplateEngine templateEngine(ResourceLoader resourceLoader) {
         SpringTemplateEngine templateEngine = new SpringTemplateEngine();
         templateEngine.addTemplateResolver(new FileFallbackTemplateResolver(resourceLoader));
@@ -60,7 +62,7 @@ public class AppConfig {
             props.load(resource.getInputStream());
             return props.getProperty("version");
         } catch (IOException e) {
-            logger.error("exception", e);
+            log.error("exception", e);
         }
         return "0.0.0";
     }
@@ -70,6 +72,16 @@ public class AppConfig {
         return (applicationProperties.getUi().getHomeDescription() != null)
                 ? applicationProperties.getUi().getHomeDescription()
                 : "null";
+    }
+
+    @Bean(name = "languages")
+    public List<String> languages() {
+        return applicationProperties.getUi().getLanguages();
+    }
+
+    @Bean
+    public String contextPath(@Value("${server.servlet.context-path}") String contextPath) {
+        return contextPath;
     }
 
     @Bean(name = "navBarText")
@@ -90,9 +102,9 @@ public class AppConfig {
 
     @Bean(name = "rateLimit")
     public boolean rateLimit() {
-        String appName = System.getProperty("rateLimit");
-        if (appName == null) appName = System.getenv("rateLimit");
-        return (appName != null) ? Boolean.valueOf(appName) : false;
+        String rateLimit = System.getProperty("rateLimit");
+        if (rateLimit == null) rateLimit = System.getenv("rateLimit");
+        return (rateLimit != null) ? Boolean.valueOf(rateLimit) : false;
     }
 
     @Bean(name = "RunningInDocker")
@@ -100,29 +112,29 @@ public class AppConfig {
         return Files.exists(Paths.get("/.dockerenv"));
     }
 
-    @Bean(name = "bookAndHtmlFormatsInstalled")
-    public boolean bookAndHtmlFormatsInstalled() {
-        String installOps = System.getProperty("INSTALL_BOOK_AND_ADVANCED_HTML_OPS");
-        if (installOps == null) {
-            installOps = System.getenv("INSTALL_BOOK_AND_ADVANCED_HTML_OPS");
+    @Bean(name = "configDirMounted")
+    public boolean isRunningInDockerWithConfig() {
+        Path dockerEnv = Paths.get("/.dockerenv");
+        // default to true if not docker
+        if (!Files.exists(dockerEnv)) {
+            return true;
         }
-        return "true".equalsIgnoreCase(installOps);
+        Path mountInfo = Paths.get("/proc/1/mountinfo");
+        // this should always exist, if not some unknown usecase
+        if (!Files.exists(mountInfo)) {
+            return true;
+        }
+        try {
+            return Files.lines(mountInfo).anyMatch(line -> line.contains(" /configs "));
+        } catch (IOException e) {
+            return false;
+        }
     }
 
     @ConditionalOnMissingClass("stirling.software.SPDF.config.security.SecurityConfiguration")
-    @Bean(name = "activSecurity")
-    public boolean missingActivSecurity() {
+    @Bean(name = "activeSecurity")
+    public boolean missingActiveSecurity() {
         return false;
-    }
-
-    @Bean(name = "watchedFoldersDir")
-    public String watchedFoldersDir() {
-        return "./pipeline/watchedFolders/";
-    }
-
-    @Bean(name = "finishedFoldersDir")
-    public String finishedFoldersDir() {
-        return "./pipeline/finishedFolders/";
     }
 
     @Bean(name = "directoryFilter")
@@ -159,5 +171,28 @@ public class AppConfig {
     @Bean(name = "accessibilityStatement")
     public String accessibilityStatement() {
         return applicationProperties.getLegal().getAccessibilityStatement();
+    }
+
+    @Bean(name = "analyticsPrompt")
+    @Scope("request")
+    public boolean analyticsPrompt() {
+        return applicationProperties.getSystem().getEnableAnalytics() == null;
+    }
+
+    @Bean(name = "analyticsEnabled")
+    @Scope("request")
+    public boolean analyticsEnabled() {
+        if (applicationProperties.getPremium().isEnabled()) return true;
+        return applicationProperties.getSystem().isAnalyticsEnabled();
+    }
+
+    @Bean(name = "StirlingPDFLabel")
+    public String stirlingPDFLabel() {
+        return "Stirling-PDF" + " v" + appVersion();
+    }
+
+    @Bean(name = "UUID")
+    public String uuid() {
+        return applicationProperties.getAutomaticallyGenerated().getUUID();
     }
 }

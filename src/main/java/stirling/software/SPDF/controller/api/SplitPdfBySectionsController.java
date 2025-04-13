@@ -9,7 +9,6 @@ import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
-import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.multipdf.LayerUtility;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
@@ -18,8 +17,6 @@ import org.apache.pdfbox.pdmodel.PDPageContentStream.AppendMode;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.graphics.form.PDFormXObject;
 import org.apache.pdfbox.util.Matrix;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -34,7 +31,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import stirling.software.SPDF.model.api.SplitPdfBySectionsRequest;
-import stirling.software.SPDF.service.CustomPDDocumentFactory;
+import stirling.software.SPDF.service.CustomPDFDocumentFactory;
 import stirling.software.SPDF.utils.WebResponseUtils;
 
 @RestController
@@ -42,13 +39,10 @@ import stirling.software.SPDF.utils.WebResponseUtils;
 @Tag(name = "General", description = "General APIs")
 public class SplitPdfBySectionsController {
 
-    private static final Logger logger =
-            LoggerFactory.getLogger(SplitPdfBySectionsController.class);
-
-    private final CustomPDDocumentFactory pdfDocumentFactory;
+    private final CustomPDFDocumentFactory pdfDocumentFactory;
 
     @Autowired
-    public SplitPdfBySectionsController(CustomPDDocumentFactory pdfDocumentFactory) {
+    public SplitPdfBySectionsController(CustomPDFDocumentFactory pdfDocumentFactory) {
         this.pdfDocumentFactory = pdfDocumentFactory;
     }
 
@@ -56,13 +50,15 @@ public class SplitPdfBySectionsController {
     @Operation(
             summary = "Split PDF pages into smaller sections",
             description =
-                    "Split each page of a PDF into smaller sections based on the user's choice (halves, thirds, quarters, etc.), both vertically and horizontally. Input:PDF Output:ZIP-PDF Type:SISO")
+                    "Split each page of a PDF into smaller sections based on the user's choice"
+                            + " (halves, thirds, quarters, etc.), both vertically and horizontally."
+                            + " Input:PDF Output:ZIP-PDF Type:SISO")
     public ResponseEntity<byte[]> splitPdf(@ModelAttribute SplitPdfBySectionsRequest request)
             throws Exception {
         List<ByteArrayOutputStream> splitDocumentsBoas = new ArrayList<>();
 
         MultipartFile file = request.getFileInput();
-        PDDocument sourceDocument = Loader.loadPDF(file.getBytes());
+        PDDocument sourceDocument = pdfDocumentFactory.load(file);
 
         // Process the PDF based on split parameters
         int horiz = request.getHorizontalDivisions() + 1;
@@ -105,15 +101,15 @@ public class SplitPdfBySectionsController {
 
                 if (sectionNum == horiz * verti) pageNum++;
             }
-        } catch (Exception e) {
-            logger.error("exception", e);
-        } finally {
+
+            zipOut.finish();
             data = Files.readAllBytes(zipFile);
+            return WebResponseUtils.bytesToWebResponse(
+                    data, filename + "_split.zip", MediaType.APPLICATION_OCTET_STREAM);
+
+        } finally {
             Files.deleteIfExists(zipFile);
         }
-
-        return WebResponseUtils.bytesToWebResponse(
-                data, filename + "_split.zip", MediaType.APPLICATION_OCTET_STREAM);
     }
 
     public List<PDDocument> splitPdfPages(

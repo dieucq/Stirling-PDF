@@ -10,34 +10,52 @@ import org.commonmark.node.Node;
 import org.commonmark.parser.Parser;
 import org.commonmark.renderer.html.AttributeProvider;
 import org.commonmark.renderer.html.HtmlRenderer;
-import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import io.github.pixee.security.Filenames;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
+import stirling.software.SPDF.config.RuntimePathConfig;
+import stirling.software.SPDF.model.ApplicationProperties;
 import stirling.software.SPDF.model.api.GeneralFile;
+import stirling.software.SPDF.service.CustomPDFDocumentFactory;
 import stirling.software.SPDF.utils.FileToPdf;
 import stirling.software.SPDF.utils.WebResponseUtils;
 
-// Disabled for now
-// @RestController
-// @Tag(name = "Convert", description = "Convert APIs")
-// @RequestMapping("/api/v1/convert")
+@RestController
+@Tag(name = "Convert", description = "Convert APIs")
+@RequestMapping("/api/v1/convert")
 public class ConvertMarkdownToPdf {
 
-    // @Autowired
-    @Qualifier("bookAndHtmlFormatsInstalled")
-    private boolean bookAndHtmlFormatsInstalled;
+    private final CustomPDFDocumentFactory pdfDocumentFactory;
+
+    private final ApplicationProperties applicationProperties;
+    private final RuntimePathConfig runtimePathConfig;
+
+    @Autowired
+    public ConvertMarkdownToPdf(
+            CustomPDFDocumentFactory pdfDocumentFactory,
+            ApplicationProperties applicationProperties,
+            RuntimePathConfig runtimePathConfig) {
+        this.pdfDocumentFactory = pdfDocumentFactory;
+
+        this.applicationProperties = applicationProperties;
+        this.runtimePathConfig = runtimePathConfig;
+    }
 
     @PostMapping(consumes = "multipart/form-data", value = "/markdown/pdf")
     @Operation(
             summary = "Convert a Markdown file to PDF",
             description =
-                    "This endpoint takes a Markdown file input, converts it to HTML, and then to PDF format. Input:MARKDOWN Output:PDF Type:SISO")
+                    "This endpoint takes a Markdown file input, converts it to HTML, and then to"
+                            + " PDF format. Input:MARKDOWN Output:PDF Type:SISO")
     public ResponseEntity<byte[]> markdownToPdf(@ModelAttribute GeneralFile request)
             throws Exception {
         MultipartFile fileInput = request.getFileInput();
@@ -64,13 +82,17 @@ public class ConvertMarkdownToPdf {
 
         String htmlContent = renderer.render(document);
 
+        boolean disableSanitize =
+                Boolean.TRUE.equals(applicationProperties.getSystem().getDisableSanitize());
+
         byte[] pdfBytes =
                 FileToPdf.convertHtmlToPdf(
+                        runtimePathConfig.getWeasyPrintPath(),
                         null,
                         htmlContent.getBytes(),
                         "converted.html",
-                        bookAndHtmlFormatsInstalled);
-
+                        disableSanitize);
+        pdfBytes = pdfDocumentFactory.createNewBytesBasedOnOldDocument(pdfBytes);
         String outputFilename =
                 originalFilename.replaceFirst("[.][^.]+$", "")
                         + ".pdf"; // Remove file extension and append .pdf

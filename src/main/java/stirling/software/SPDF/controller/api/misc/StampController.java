@@ -1,6 +1,6 @@
 package stirling.software.SPDF.controller.api.misc;
 
-import java.awt.Color;
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -38,7 +38,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import stirling.software.SPDF.model.api.misc.AddStampRequest;
-import stirling.software.SPDF.service.CustomPDDocumentFactory;
+import stirling.software.SPDF.service.CustomPDFDocumentFactory;
 import stirling.software.SPDF.utils.WebResponseUtils;
 
 @RestController
@@ -46,10 +46,10 @@ import stirling.software.SPDF.utils.WebResponseUtils;
 @Tag(name = "Misc", description = "Miscellaneous APIs")
 public class StampController {
 
-    private final CustomPDDocumentFactory pdfDocumentFactory;
+    private final CustomPDFDocumentFactory pdfDocumentFactory;
 
     @Autowired
-    public StampController(CustomPDDocumentFactory pdfDocumentFactory) {
+    public StampController(CustomPDFDocumentFactory pdfDocumentFactory) {
         this.pdfDocumentFactory = pdfDocumentFactory;
     }
 
@@ -57,7 +57,9 @@ public class StampController {
     @Operation(
             summary = "Add stamp to a PDF file",
             description =
-                    "This endpoint adds a stamp to a given PDF file. Users can specify the stamp type (text or image), rotation, opacity, width spacer, and height spacer. Input:PDF Output:PDF Type:SISO")
+                    "This endpoint adds a stamp to a given PDF file. Users can specify the stamp"
+                            + " type (text or image), rotation, opacity, width spacer, and height"
+                            + " spacer. Input:PDF Output:PDF Type:SISO")
     public ResponseEntity<byte[]> addStamp(@ModelAttribute AddStampRequest request)
             throws IOException, Exception {
         MultipartFile pdfFile = request.getFileInput();
@@ -229,10 +231,22 @@ public class StampController {
                     calculatePositionY(
                             pageSize, position, calculateTextCapHeight(font, fontSize), margin);
         }
+        // Split the stampText into multiple lines
+        String[] lines = stampText.split("\\\\n");
+
+        // Calculate dynamic line height based on font ascent and descent
+        float ascent = font.getFontDescriptor().getAscent();
+        float descent = font.getFontDescriptor().getDescent();
+        float lineHeight = ((ascent - descent) / 1000) * fontSize;
 
         contentStream.beginText();
-        contentStream.setTextMatrix(Matrix.getRotateInstance(Math.toRadians(rotation), x, y));
-        contentStream.showText(stampText);
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i];
+            // Set the text matrix for each line with rotation
+            contentStream.setTextMatrix(
+                    Matrix.getRotateInstance(Math.toRadians(rotation), x, y - (i * lineHeight)));
+            contentStream.showText(line);
+        }
         contentStream.endText();
     }
 

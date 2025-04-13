@@ -119,7 +119,7 @@ document.getElementById("submitConfigBtn").addEventListener("click", function ()
   formData.append("json", pipelineConfigJson);
   console.log("formData", formData);
 
-  fetch("api/v1/pipeline/handleData", {
+  fetchWithCsrf("api/v1/pipeline/handleData", {
     method: "POST",
     body: formData,
   })
@@ -153,22 +153,32 @@ document.getElementById("submitConfigBtn").addEventListener("click", function ()
 let apiDocs = {};
 let apiSchemas = {};
 let operationSettings = {};
+let operationStatus = {};
 
-fetch("v1/api-docs")
+fetchWithCsrf("v1/api-docs")
   .then((response) => response.json())
   .then((data) => {
     apiDocs = data.paths;
     apiSchemas = data.components.schemas;
-    let operationsDropdown = document.getElementById("operationsDropdown");
+    return fetchWithCsrf("api/v1/settings/get-endpoints-status")
+      .then((response) => response.json())
+      .then((data) => {
+        operationStatus = data;
+      })
+      .catch((error) => {
+        console.error("Error:", error);
+      });
+  })
+  .then(() => {
     const ignoreOperations = ["/api/v1/pipeline/handleData", "/api/v1/pipeline/operationToIgnore"]; // Add the operations you want to ignore here
-
+    let operationsDropdown = document.getElementById("operationsDropdown");
     operationsDropdown.innerHTML = "";
 
     let operationsByTag = {};
 
     // Group operations by tags
-    Object.keys(data.paths).forEach((operationPath) => {
-      let operation = data.paths[operationPath].post;
+    Object.keys(apiDocs).forEach((operationPath) => {
+      let operation = apiDocs[operationPath].post;
       if (!operation || !operation.description) {
         console.log(operationPath);
       }
@@ -209,43 +219,49 @@ fetch("v1/api-docs")
           }
           operationPathDisplay = operationPathDisplay.replaceAll(" ", "-");
           option.textContent = operationPathDisplay;
-          option.value = operationPath; // Keep the value with slashes for querying
-          group.appendChild(option);
+
+          if (!(operationPathDisplay in operationStatus)) {
+            option.value = operationPath; // Keep the value with slashes for querying
+            group.appendChild(option);
+          }
         });
 
         operationsDropdown.appendChild(group);
       }
     });
+  })
+  .catch((error) => {
+    console.error("Error:", error);
   });
 
 document.getElementById('deletePipelineBtn').addEventListener('click', function(event) {
     event.preventDefault();
     let pipelineName = document.getElementById('pipelineName').value;
 
-	if (confirm(deletePipelineText + pipelineName)) {
-		removePipelineFromUI(pipelineName);
-	    let key = "#Pipeline-" + pipelineName;
-	    if (localStorage.getItem(key)) {
-	            localStorage.removeItem(key);
-	    } 
-	    let pipelineSelect = document.getElementById("pipelineSelect");
-	    let modal = document.getElementById('pipelineSettingsModal');
-	    if (modal.style.display !== 'none') {
-	        $('#pipelineSettingsModal').modal('hide');
-	    }
+    if (confirm(deletePipelineText + pipelineName)) {
+        removePipelineFromUI(pipelineName);
+        let key = "#Pipeline-" + pipelineName;
+        if (localStorage.getItem(key)) {
+            localStorage.removeItem(key);
+        }
+        let pipelineSelect = document.getElementById("pipelineSelect");
+        let modal = document.getElementById('pipelineSettingsModal');
+        if (modal.style.display !== 'none') {
+            $('#pipelineSettingsModal').modal('hide');
+        }
 
-	    if (pipelineSelect.options.length > 0) {
-	        pipelineSelect.selectedIndex = 0;
-	        pipelineSelect.dispatchEvent(new Event('change'));
-	    }
+        if (pipelineSelect.options.length > 0) {
+            pipelineSelect.selectedIndex = 0;
+            pipelineSelect.dispatchEvent(new Event('change'));
+        }
     }
 });
 
 function removePipelineFromUI(pipelineName) {
     let pipelineSelect = document.getElementById("pipelineSelect");
     for (let i = 0; i < pipelineSelect.options.length; i++) {
-		console.log(pipelineSelect.options[i])
-		console.log("list " + pipelineSelect.options[i].innerText + " vs " + pipelineName)
+        console.log(pipelineSelect.options[i])
+        console.log("list " + pipelineSelect.options[i].innerText + " vs " + pipelineName)
         if (pipelineSelect.options[i].innerText === pipelineName) {
             pipelineSelect.remove(i);
             break;
@@ -414,22 +430,22 @@ document.getElementById("addOperationBtn").addEventListener("click", function ()
             parameterInput.type = "checkbox";
             if (defaultValue === true) parameterInput.checked = true;
             break;
-           case "array":
-		     // If parameter.schema.format === 'binary' is to be checked, it should be checked here
-		     parameterInput = document.createElement("textarea");
-		     parameterInput.placeholder = 'Enter a JSON formatted array, e.g., ["item1", "item2", "item3"]';
-		     parameterInput.className = "form-control";
-		     break;
-		   case "object":
-		     parameterInput = document.createElement("textarea");
-		     parameterInput.placeholder = 'Enter a JSON formatted object, e.g., {"key": "value"}  If this is a fileInput, it is not currently supported';
-		     parameterInput.className = "form-control";
-		     break;
-		   default:
-             parameterInput = document.createElement("input");
-             parameterInput.type = "text";
-             parameterInput.className = "form-control";
-             if (defaultValue !== undefined) parameterInput.value = defaultValue;
+          case "array":
+            // If parameter.schema.format === 'binary' is to be checked, it should be checked here
+            parameterInput = document.createElement("textarea");
+            parameterInput.placeholder = 'Enter a JSON formatted array, e.g., ["item1", "item2", "item3"]';
+            parameterInput.className = "form-control";
+            break;
+          case "object":
+            parameterInput = document.createElement("textarea");
+            parameterInput.placeholder = 'Enter a JSON formatted object, e.g., {"key": "value"}  If this is a fileInput, it is not currently supported';
+            parameterInput.className = "form-control";
+            break;
+          default:
+            parameterInput = document.createElement("input");
+            parameterInput.type = "text";
+            parameterInput.className = "form-control";
+            if (defaultValue !== undefined) parameterInput.value = defaultValue;
         }
       }
       parameterInput.id = parameter.name;
@@ -481,21 +497,21 @@ document.getElementById("addOperationBtn").addEventListener("click", function ()
                 break;
               case "array":
               case "object":
-                 if (value === null || value === "") {
-				    settings[parameter.name] = "";
-				  } else {
-				    try {
-				      const parsedValue = JSON.parse(value);
-				      if (Array.isArray(parsedValue)) {
-				        settings[parameter.name] = parsedValue;
-				      } else {
-				        settings[parameter.name] = value; 
-				      }
-				    } catch (e) {
-				      settings[parameter.name] = value;
-				    }
-				 }
-				 break;
+                  if (value === null || value === "") {
+                    settings[parameter.name] = "";
+                  } else {
+                    try {
+                      const parsedValue = JSON.parse(value);
+                      if (Array.isArray(parsedValue)) {
+                        settings[parameter.name] = parsedValue;
+                      } else {
+                        settings[parameter.name] = value;
+                      }
+                    } catch (e) {
+                      settings[parameter.name] = value;
+                    }
+                }
+                break;
               default:
                 settings[parameter.name] = value;
             }
@@ -686,13 +702,13 @@ async function processPipelineConfig(configString) {
           case "text":
           case "textarea":
           default:
-			var value = operationConfig.parameters[parameterName]
-			if (typeof value !== 'string') {
-			    input.value = JSON.stringify(value) ;
-			} else {
-				input.value = value;
-			}
-            
+            var value = operationConfig.parameters[parameterName]
+            if (typeof value !== 'string') {
+                input.value = JSON.stringify(value) ;
+            } else {
+              input.value = value;
+            }
+
         }
       }
     });

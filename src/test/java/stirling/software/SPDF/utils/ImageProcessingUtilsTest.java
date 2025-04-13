@@ -1,11 +1,13 @@
 package stirling.software.SPDF.utils;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.awt.Color;
 
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
 
 public class ImageProcessingUtilsTest {
 
@@ -13,14 +15,15 @@ public class ImageProcessingUtilsTest {
     void testConvertColorTypeToGreyscale() {
         BufferedImage sourceImage = new BufferedImage(100, 100, BufferedImage.TYPE_INT_RGB);
         fillImageWithColor(sourceImage, Color.RED);
-        
-        BufferedImage convertedImage = ImageProcessingUtils.convertColorType(sourceImage, "greyscale");
+
+        BufferedImage convertedImage =
+                ImageProcessingUtils.convertColorType(sourceImage, "greyscale");
 
         assertNotNull(convertedImage);
         assertEquals(BufferedImage.TYPE_BYTE_GRAY, convertedImage.getType());
         assertEquals(sourceImage.getWidth(), convertedImage.getWidth());
         assertEquals(sourceImage.getHeight(), convertedImage.getHeight());
-        
+
         // Check if a pixel is correctly converted to greyscale
         Color grey = new Color(convertedImage.getRGB(0, 0));
         assertEquals(grey.getRed(), grey.getGreen());
@@ -31,14 +34,15 @@ public class ImageProcessingUtilsTest {
     void testConvertColorTypeToBlackWhite() {
         BufferedImage sourceImage = new BufferedImage(100, 100, BufferedImage.TYPE_INT_RGB);
         fillImageWithColor(sourceImage, Color.RED);
-        
-        BufferedImage convertedImage = ImageProcessingUtils.convertColorType(sourceImage, "blackwhite");
+
+        BufferedImage convertedImage =
+                ImageProcessingUtils.convertColorType(sourceImage, "blackwhite");
 
         assertNotNull(convertedImage);
         assertEquals(BufferedImage.TYPE_BYTE_BINARY, convertedImage.getType());
         assertEquals(sourceImage.getWidth(), convertedImage.getWidth());
         assertEquals(sourceImage.getHeight(), convertedImage.getHeight());
-        
+
         // Check if a pixel is converted correctly (binary image will be either black or white)
         int rgb = convertedImage.getRGB(0, 0);
         assertTrue(rgb == Color.BLACK.getRGB() || rgb == Color.WHITE.getRGB());
@@ -48,8 +52,9 @@ public class ImageProcessingUtilsTest {
     void testConvertColorTypeToFullColor() {
         BufferedImage sourceImage = new BufferedImage(100, 100, BufferedImage.TYPE_INT_RGB);
         fillImageWithColor(sourceImage, Color.RED);
-        
-        BufferedImage convertedImage = ImageProcessingUtils.convertColorType(sourceImage, "fullcolor");
+
+        BufferedImage convertedImage =
+                ImageProcessingUtils.convertColorType(sourceImage, "fullcolor");
 
         assertNotNull(convertedImage);
         assertEquals(sourceImage, convertedImage);
@@ -59,8 +64,9 @@ public class ImageProcessingUtilsTest {
     void testConvertColorTypeInvalid() {
         BufferedImage sourceImage = new BufferedImage(100, 100, BufferedImage.TYPE_INT_RGB);
         fillImageWithColor(sourceImage, Color.RED);
-        
-        BufferedImage convertedImage = ImageProcessingUtils.convertColorType(sourceImage, "invalidtype");
+
+        BufferedImage convertedImage =
+                ImageProcessingUtils.convertColorType(sourceImage, "invalidtype");
 
         assertNotNull(convertedImage);
         assertEquals(sourceImage, convertedImage);
